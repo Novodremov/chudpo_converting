@@ -3,7 +3,7 @@ import logging
 import sys
 from datetime import datetime
 
-from telebot import TeleBot
+from telebot import TeleBot, types
 
 from converting.constants import TEST_COLUMNS, WORKER_COLUMNS, XML_NAME_FORMAT
 from converting.convert import converting_to_xml
@@ -21,7 +21,8 @@ TELEGRAM_TOKEN = os.getenv('TELEGRAM_TOKEN')
 bot = TeleBot(token=TELEGRAM_TOKEN)
 user_states = {}
 
-TEMP_FOLDER = os.path.join(os.path.dirname(__file__), '..', 'converting', 'temp')
+TEMP_FOLDER = os.path.join(
+    os.path.dirname(__file__), '..', 'converting', 'temp')
 os.makedirs(TEMP_FOLDER, exist_ok=True)
 
 
@@ -40,23 +41,46 @@ def check_tokens():
         sys.exit(error)
 
 
+def create_keyboard():
+    keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
+    button_help = types.KeyboardButton('/help')
+    button_many = types.KeyboardButton('/many')
+    keyboard.add(button_help, button_many)
+    return keyboard
+
+
+@bot.message_handler(commands=['start'])
+def handle_start_command(message):
+    bot.send_message(message.chat.id,
+                     f'Привет, {message.from_user.first_name}! '
+                     'Наберите команду /help для помощи',
+                     reply_markup=create_keyboard())
+
+
 @bot.message_handler(commands=['help'])
 def handle_help_command(message):
     help_text = ('Загрузите файл в формате xlsx для конвертации в xml. '
                  'В файле обязательны следующие столбцы:\n'
-                 f'{'\n'.join(NECESSARY_COLUMNS)}')
-    bot.reply_to(message, help_text)
+                 f'*{'\n'.join(NECESSARY_COLUMNS)}*\n'
+                 'По команде /many можно загрузить несколько файлов сразу.')
+    bot.reply_to(message, help_text,
+                 parse_mode='Markdown',
+                 reply_markup=create_keyboard())
 
 
 @bot.message_handler(commands=['many'])
 def handle_many_command(message):
-    user_states[message.chat.id] = []  # Инициализируем список для хранения файлов
-    bot.reply_to(message, 'Отправьте файлы .xlsx для конвертации. Пришлите любое текстовое сообщение для завершения.')
+    user_states[message.chat.id] = []  # Создаём список для хранения файлов
+    bot.reply_to(message, 'Отправьте файлы .xlsx для конвертации. '
+                          'Пришлите любое текстовое сообщение для завершения.')
 
 
 @bot.message_handler(content_types=['document'])
 def handle_document(message):
-    if message.document.mime_type == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet':
+    if (
+        message.document.mime_type ==
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    ):
         file_info = bot.get_file(message.document.file_id)
         downloaded_file = bot.download_file(file_info.file_path)
 
@@ -69,7 +93,9 @@ def handle_document(message):
         if message.chat.id in user_states:
             # Добавляем файл в список для текущего пользователя
             user_states[message.chat.id].append(temp_file_path)
-            bot.reply_to(message, f'Файл {file_name} добавлен. Отправьте еще файлы или любое текстовое сообщение для завершения.')
+            bot.reply_to(message, f'Файл {file_name} добавлен. Отправьте ещё '
+                                  'файлы или любое текстовое сообщение для '
+                                  'завершения.')
         else:
             # Если не в режиме many, сразу конвертируем и отправляем xml
             xml_file_name = f"{os.path.splitext(file_name)[0]}.xml"
@@ -95,7 +121,8 @@ def handle_text_message(message):
         # Завершаем прием файлов и конвертируем их в XML
         xlsx_files = user_states[message.chat.id]
         if xlsx_files:
-            xml_file_name = f'combined_{datetime.now().strftime(XML_NAME_FORMAT)}.xml'
+            xml_file_name = f'combined_{
+                datetime.now().strftime(XML_NAME_FORMAT)}.xml'
             xml_file_path = os.path.join(TEMP_FOLDER, xml_file_name)
             try:
                 converting_to_xml(xlsx_files, xml_file_path)
@@ -112,9 +139,12 @@ def handle_text_message(message):
             os.remove(xml_file_path)
 
         del user_states[message.chat.id]  # Удаляем состояние пользователя
-        bot.reply_to(message, 'Конвертация завершена. Файлы отправлены.')
+        bot.reply_to(message, 'Конвертация завершена. Файлы отправлены.',
+                     reply_markup=create_keyboard())
     else:
-        bot.reply_to(message, 'Необходимо использовать команду /many для начала процесса.')
+        bot.reply_to(message, 'Команда неизвестна. Вызовите команду /help '
+                              'для помощи.',
+                     reply_markup=create_keyboard())
 
 
 def main():

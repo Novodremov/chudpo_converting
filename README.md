@@ -7,8 +7,10 @@
 ## Технологии
 ```
 - Python 3.12
-- aiogram
+- pyTelegramBotAPI
 - pandas
+- openpyxl
+- python-dotenv
 ```
 
 ## Установка

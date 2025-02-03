@@ -54,6 +54,12 @@ pip install -r requirements.txt
 python main.py
 ```
 
+С помощью библиотеки pyinstaller можно скомпилировать exe-файл для работы бота. Процесс будет сворачиваться в трей. В корневую директорию проекта необходимо выложить файл иконки logo.png (эта иконка будет отображаться в трее). Файл main.exe компилируется в директории /dist по команде:
+```
+pyinstaller --onefile --windowed --icon=logo.png --add-data "logo.png;." --add-data ".env;." main.py
+```
+
+
 ## Автор
 *Лысов Алексей*
 Контактная информация: 

@@ -3,8 +3,10 @@ from datetime import datetime
 import pandas as pd
 import xml.etree.ElementTree as ET
 
+from chudpo_bot.exceptions import ConversionError
 from .constants import (CHUDPO, INPUT_FORMAT, OUTPUT_FORMAT,
                         TEST_COLUMNS, WORKER_COLUMNS)
+from .validators import check_null_values
 
 
 def converting_to_xml(xlsx_files, xml_file_path):
@@ -20,10 +22,10 @@ def converting_to_xml(xlsx_files, xml_file_path):
     for file in xlsx_files:
         df = pd.read_excel(file)
 
-        # Добавление записей о работниках из текущего файла
         for index, row in df.iterrows():
-            registry_record = ET.SubElement(registry_set, 'RegistryRecord')
+            check_null_values(index, row)
 
+            registry_record = ET.SubElement(registry_set, 'RegistryRecord')
             worker = ET.SubElement(registry_record, 'Worker')
             for col in WORKER_COLUMNS:
                 ET.SubElement(worker, col).text = str(row[WORKER_COLUMNS[col]])
@@ -37,12 +39,18 @@ def converting_to_xml(xlsx_files, xml_file_path):
                                  isPassed="true",
                                  learnProgramId=str(row[TEST_COLUMNS['id']]))
 
-            # Преобразование даты в нужный формат
-            date_str = row[TEST_COLUMNS['date']]
-            date_object = datetime.strptime(date_str, INPUT_FORMAT)
-            formatted_date = date_object.strftime(OUTPUT_FORMAT)
-
-            ET.SubElement(test, 'Date').text = formatted_date
+            try:
+                date_str = row[TEST_COLUMNS['date']]
+                # Преобразование даты в нужный формат
+                date_object = datetime.strptime(date_str, INPUT_FORMAT)
+                formatted_date = date_object.strftime(OUTPUT_FORMAT)
+                ET.SubElement(test, 'Date').text = formatted_date
+            except Exception as e:
+                raise ConversionError(
+                    f'Ошибка в строке {index + 2}, ячейка '
+                    f'"{TEST_COLUMNS['date']}": {row[TEST_COLUMNS['date']]}.\n'
+                    f'Причина: {str(e)}'
+                )
             ET.SubElement(test, 'ProtocolNumber').text = str(
                 row[TEST_COLUMNS['protocol']])
             ET.SubElement(

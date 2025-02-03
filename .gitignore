@@ -134,6 +134,8 @@ dmypy.json
 *.db
 
 logo.jpg
+logo.png
+logo.ico
 *.bak
 
 converting/archive

@@ -7,7 +7,8 @@ from telebot import TeleBot, types
 
 from converting.constants import TEST_COLUMNS, WORKER_COLUMNS, XML_NAME_FORMAT
 from converting.convert import converting_to_xml
-from .exceptions import CovertingError
+# from .exceptions import ConversionError
+from .validators import check_necessary_columns
 
 
 logger = logging.getLogger(__name__)
@@ -83,8 +84,22 @@ def handle_document(message):
     ):
         file_info = bot.get_file(message.document.file_id)
         downloaded_file = bot.download_file(file_info.file_path)
-
         file_name = message.document.file_name
+
+        # Проверка наличия необходимых столбцов
+        missing_columns = check_necessary_columns(downloaded_file)
+
+        if missing_columns:
+            bot.send_message(message.chat.id,
+                             f'В файле `{file_name}` отсутствуют необходимые '
+                             'колонки:\n'
+                             f'*{'\n'.join(missing_columns)}*\n'
+                             'Если не можете понять, в чём проблема, '
+                             'проверьте регистр, наличие лишних пробелов и '
+                             'пустых строк в названиях колонок.',
+                             parse_mode='Markdown')
+            return
+
         temp_file_path = os.path.join(TEMP_FOLDER, file_name)
         with open(temp_file_path, 'wb') as new_file:
             new_file.write(downloaded_file)
@@ -94,8 +109,8 @@ def handle_document(message):
             # Добавляем файл в список для текущего пользователя
             user_states[message.chat.id].append(temp_file_path)
             bot.reply_to(message, f'Файл {file_name} добавлен. Отправьте ещё '
-                                  'файлы или любое текстовое сообщение для '
-                                  'завершения.')
+                         'файлы или любое текстовое сообщение для '
+                         'завершения.')
         else:
             # Если не в режиме many, сразу конвертируем и отправляем xml
             xml_file_name = f"{os.path.splitext(file_name)[0]}.xml"
@@ -103,9 +118,13 @@ def handle_document(message):
             try:
                 converting_to_xml([temp_file_path], xml_file_path)
             except Exception as error:
-                raise CovertingError(
-                    f'Произошла ошибка конвертирования: {error}'
-                )
+                # raise ConversionError(
+                #     f'Произошла ошибка конвертирования: {error}'
+                # )
+                error_message = f'Произошла ошибка конвертирования: {error}'
+                bot.send_message(message.chat.id, error_message)
+                logging.error(error_message)
+                return
             with open(xml_file_path, 'rb') as xml_file:
                 bot.send_document(message.chat.id, xml_file)
 
@@ -127,10 +146,13 @@ def handle_text_message(message):
             try:
                 converting_to_xml(xlsx_files, xml_file_path)
             except Exception as error:
-                raise CovertingError(
-                    f'Произошла ошибка конвертирования: {error}'
-                )
-
+                # raise ConversionError(
+                #     f'Произошла ошибка конвертирования: {error}'
+                # )
+                error_message = f'Произошла ошибка конвертирования: {error}'
+                bot.send_message(message.chat.id, error_message)
+                logging.error(error_message)
+                return
             with open(xml_file_path, 'rb') as xml_file:
                 bot.send_document(message.chat.id, xml_file)
 

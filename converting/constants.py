@@ -22,6 +22,9 @@ TEST_COLUMNS = {'date': 'Дата в удостоверении',
                 'id': 'ID программы в Гос. Реестре'
                 }
 
+REQUIRED_COLUMNS = set(WORKER_COLUMNS.values()
+                       ).union(set(TEST_COLUMNS.values()))
+
 INPUT_FORMAT = '%d.%m.%Y'
 OUTPUT_FORMAT = '%Y-%m-%d'
 XML_NAME_FORMAT = '%Y-%m-%d_%H-%M-%S'
